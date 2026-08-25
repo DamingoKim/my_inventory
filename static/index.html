@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Inventory Tracker</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>🧺 Inventory &amp; Revenue Tracker</h1>
+    <button id="net-worth" class="net-worth-badge">
+      Net worth: <span id="net-worth-value">$0.00</span>
+      <span class="net-worth-hint">click for history</span>
+    </button>
+  </header>
+
+  <main id="products-grid" class="products-grid">
+    <!-- product cards are filled in by script.js -->
+  </main>
+
+  <div id="history-overlay" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>Transaction History</h2>
+        <button id="history-close" class="modal-close">&times;</button>
+      </div>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="history-body">
+          <!-- filled in by script.js -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>

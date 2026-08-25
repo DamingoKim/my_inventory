@@ -1,0 +1,255 @@
+openapi: 3.0.3
+info:
+  title: Inventory Tracker API
+  version: "1.0.0"
+  description: >
+    Manages 5 fixed products (apple, banana, grape, orange, watermelon):
+    stock levels, price, selling, and total revenue (net worth).
+servers:
+  - url: http://127.0.0.1:5001
+    description: Local development server
+
+paths:
+  /api/docs:
+    get:
+      summary: Download the API reference as a PDF
+      responses:
+        "200":
+          description: The PDF file
+          content:
+            application/pdf: {}
+
+  /api/products:
+    get:
+      summary: List all products
+      responses:
+        "200":
+          description: All 5 products with current stock and price
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+
+  /api/products/{id}:
+    get:
+      summary: Look up a single product by id
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: The product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/products/{id}/restock:
+    post:
+      summary: Add 1 to stock_qty
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: The updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/products/{id}/price:
+    put:
+      summary: Set the product's price
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [price]
+              properties:
+                price:
+                  type: number
+                  minimum: 0
+                  example: 1.5
+      responses:
+        "200":
+          description: The updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Missing or invalid price
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/products/{id}/sell:
+    post:
+      summary: Subtract 1 from stock_qty and log the sale
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: The updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Out of stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/sales:
+    get:
+      summary: Transaction history (filter / sort / group by product)
+      description: >
+        Returns sales newest-first by default. Use query params to filter
+        by product, sort by product name, or group into product categories.
+      parameters:
+        - name: product_id
+          in: query
+          required: false
+          description: Only sales for this product id
+          schema:
+            type: integer
+            example: 2
+        - name: product
+          in: query
+          required: false
+          description: Only sales for this product name
+          schema:
+            type: string
+            example: banana
+        - name: sort
+          in: query
+          required: false
+          description: Order of the flat list (`sold_at` default, or `product`)
+          schema:
+            type: string
+            enum: [sold_at, product]
+            default: sold_at
+        - name: group_by
+          in: query
+          required: false
+          description: >
+            If `product`, return an object keyed by product name
+            (each value is that product's sales list) instead of a flat array
+          schema:
+            type: string
+            enum: [product]
+      responses:
+        "200":
+          description: >
+            Flat list of sales, or (when group_by=product) an object of
+            product_name → sales[]
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Sale"
+                  - type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/Sale"
+        "400":
+          description: Invalid query parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/valuation:
+    get:
+      summary: Current net worth (total revenue from every sale ever logged)
+      responses:
+        "200":
+          description: Net worth
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  net_worth:
+                    type: number
+                    example: 12.5
+
+components:
+  parameters:
+    ProductId:
+      name: id
+      in: path
+      required: true
+      description: Product id (1-5)
+      schema:
+        type: integer
+
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: apple
+        stock_qty:
+          type: integer
+          example: 3
+        price:
+          type: number
+          example: 1.5
+
+    Sale:
+      type: object
+      properties:
+        id:
+          type: integer
+        product_id:
+          type: integer
+          example: 2
+        product_name:
+          type: string
+          example: banana
+        qty_sold:
+          type: integer
+        price_at_sale:
+          type: number
+        sold_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: no product with that id
+
+  responses:
+    NotFound:
+      description: No product with that id
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
