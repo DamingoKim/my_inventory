@@ -24,7 +24,16 @@ def openapi_spec():
 
 
 def _product_dict(row):
-    return {"id": row[0], "name": row[1], "stock_qty": row[2], "price": float(row[3])}
+    return {
+        "id": row[0],
+        "name": row[1],
+        "stock_qty": row[2],
+        "price": float(row[3]),
+        "cost": float(row[4]),
+    }
+
+
+PRODUCT_COLS = "id, name, stock_qty, price, cost"
 
 
 @app.route("/")
@@ -50,7 +59,7 @@ def get_docs():
 def get_products():
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id, name, stock_qty, price FROM products ORDER BY id;")
+    cur.execute(f"SELECT {PRODUCT_COLS} FROM products ORDER BY id;")
     rows = cur.fetchall()
     cur.close()
     conn.close()
@@ -64,7 +73,7 @@ def get_product(product_id):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, name, stock_qty, price FROM products WHERE id = %s;",
+        f"SELECT {PRODUCT_COLS} FROM products WHERE id = %s;",
         (product_id,),
     )
     row = cur.fetchone()
@@ -78,23 +87,35 @@ def get_product(product_id):
 
 @app.route("/api/products/<int:product_id>/restock", methods=["POST"])
 def restock_product(product_id):
-    """+1 to stock_qty. This is the manual '+1 click' control from the blueprint."""
+    """+1 to stock_qty and log a purchase at the product's current cost.
+    That purchase cost is subtracted from net worth."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute(
-        "UPDATE products SET stock_qty = stock_qty + 1 WHERE id = %s "
-        "RETURNING id, name, stock_qty, price;",
-        (product_id,),
-    )
+
+    cur.execute("SELECT cost FROM products WHERE id = %s;", (product_id,))
     row = cur.fetchone()
     if row is None:
         cur.close()
         conn.close()
         return jsonify({"error": "no product with that id"}), 404
+
+    (cost,) = row
+    cur.execute(
+        f"UPDATE products SET stock_qty = stock_qty + 1 WHERE id = %s "
+        f"RETURNING {PRODUCT_COLS};",
+        (product_id,),
+    )
+    updated = cur.fetchone()
+
+    cur.execute(
+        "INSERT INTO purchases (product_id, qty, cost_at_purchase) VALUES (%s, 1, %s);",
+        (product_id, cost),
+    )
+
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify(_product_dict(row))
+    return jsonify(_product_dict(updated))
 
 
 @app.route("/api/products/<int:product_id>/price", methods=["PUT"])
@@ -109,9 +130,36 @@ def set_price(product_id):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "UPDATE products SET price = %s WHERE id = %s "
-        "RETURNING id, name, stock_qty, price;",
+        f"UPDATE products SET price = %s WHERE id = %s "
+        f"RETURNING {PRODUCT_COLS};",
         (price, product_id),
+    )
+    row = cur.fetchone()
+    if row is None:
+        cur.close()
+        conn.close()
+        return jsonify({"error": "no product with that id"}), 404
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify(_product_dict(row))
+
+
+@app.route("/api/products/<int:product_id>/cost", methods=["PUT"])
+def set_cost(product_id):
+    """Manually set purchase cost (매입가). Body: {"cost": 0.80}"""
+    data = request.get_json(silent=True) or {}
+    cost = data.get("cost")
+
+    if not isinstance(cost, (int, float)) or cost < 0:
+        return jsonify({"error": "cost must be a number >= 0"}), 400
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        f"UPDATE products SET cost = %s WHERE id = %s "
+        f"RETURNING {PRODUCT_COLS};",
+        (cost, product_id),
     )
     row = cur.fetchone()
     if row is None:
@@ -128,8 +176,7 @@ def set_price(product_id):
 def sell_product(product_id):
     """
     -1 from stock, and log the sale in the `sales` table so net worth
-    (total revenue) is always calculated from real history, not a number
-    we just increment by hand.
+    (revenue minus purchase costs) is always calculated from real history.
     """
     conn = get_connection()
     cur = conn.cursor()
@@ -148,8 +195,8 @@ def sell_product(product_id):
         return jsonify({"error": "out of stock"}), 400
 
     cur.execute(
-        "UPDATE products SET stock_qty = stock_qty - 1 WHERE id = %s "
-        "RETURNING id, name, stock_qty, price;",
+        f"UPDATE products SET stock_qty = stock_qty - 1 WHERE id = %s "
+        f"RETURNING {PRODUCT_COLS};",
         (product_id,),
     )
     updated = cur.fetchone()
@@ -245,14 +292,20 @@ def get_sales():
 
 @app.route("/api/valuation", methods=["GET"])
 def get_valuation():
-    """Current net worth: total revenue from every sale ever logged."""
+    """Net worth = total sales revenue − total purchase costs from restocks."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT COALESCE(SUM(qty_sold * price_at_sale), 0) FROM sales;")
-    (total,) = cur.fetchone()
+    (revenue,) = cur.fetchone()
+    cur.execute("SELECT COALESCE(SUM(qty * cost_at_purchase), 0) FROM purchases;")
+    (costs,) = cur.fetchone()
     cur.close()
     conn.close()
-    return jsonify({"net_worth": float(total)})
+    return jsonify({
+        "net_worth": float(revenue) - float(costs),
+        "revenue": float(revenue),
+        "costs": float(costs),
+    })
 
 
 if __name__ == "__main__":

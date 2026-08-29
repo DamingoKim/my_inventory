@@ -4,7 +4,8 @@ info:
   version: "1.0.0"
   description: >
     Manages 5 fixed products (apple, banana, grape, orange, watermelon):
-    stock levels, price, selling, and total revenue (net worth).
+    stock levels, sell price, purchase cost (매입가), selling, and net worth
+    (sales revenue minus restock purchase costs).
 servers:
   - url: http://127.0.0.1:5001
     description: Local development server
@@ -24,7 +25,7 @@ paths:
       summary: List all products
       responses:
         "200":
-          description: All 5 products with current stock and price
+          description: All 5 products with current stock, sell price, and cost
           content:
             application/json:
               schema:
@@ -49,7 +50,10 @@ paths:
 
   /api/products/{id}/restock:
     post:
-      summary: Add 1 to stock_qty
+      summary: Add 1 to stock_qty and log a purchase at current cost
+      description: >
+        Increases stock by 1 and records a purchase row so that cost is
+        subtracted from net worth.
       parameters:
         - $ref: "#/components/parameters/ProductId"
       responses:
@@ -64,7 +68,7 @@ paths:
 
   /api/products/{id}/price:
     put:
-      summary: Set the product's price
+      summary: Set the product's sell price
       parameters:
         - $ref: "#/components/parameters/ProductId"
       requestBody:
@@ -88,6 +92,39 @@ paths:
                 $ref: "#/components/schemas/Product"
         "400":
           description: Missing or invalid price
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/products/{id}/cost:
+    put:
+      summary: Set the product's purchase cost (매입가)
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cost]
+              properties:
+                cost:
+                  type: number
+                  minimum: 0
+                  example: 0.8
+      responses:
+        "200":
+          description: The updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Missing or invalid cost
           content:
             application/json:
               schema:
@@ -180,10 +217,10 @@ paths:
 
   /api/valuation:
     get:
-      summary: Current net worth (total revenue from every sale ever logged)
+      summary: Net worth (sales revenue minus restock purchase costs)
       responses:
         "200":
-          description: Net worth
+          description: Net worth breakdown
           content:
             application/json:
               schema:
@@ -191,7 +228,13 @@ paths:
                 properties:
                   net_worth:
                     type: number
-                    example: 12.5
+                    example: 10.5
+                  revenue:
+                    type: number
+                    example: 22.3
+                  costs:
+                    type: number
+                    example: 11.8
 
 components:
   parameters:
@@ -218,7 +261,12 @@ components:
           example: 3
         price:
           type: number
+          description: Sell price
           example: 1.5
+        cost:
+          type: number
+          description: Purchase cost (매입가)
+          example: 0.8
 
     Sale:
       type: object

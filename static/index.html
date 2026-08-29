@@ -21,10 +21,16 @@
   <div id="history-overlay" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-header">
-        <h2>Transaction History</h2>
+        <h2>Records</h2>
         <button id="history-close" class="modal-close">&times;</button>
       </div>
-      <table class="history-table">
+
+      <div class="tab-row">
+        <button class="tab-btn active" data-tab="history">Transactions</button>
+        <button class="tab-btn" data-tab="stock">Stock</button>
+      </div>
+
+      <table class="history-table tab-panel" data-panel="history">
         <thead>
           <tr>
             <th>When</th>
@@ -34,6 +40,20 @@
           </tr>
         </thead>
         <tbody id="history-body">
+          <!-- filled in by script.js -->
+        </tbody>
+      </table>
+
+      <table class="history-table tab-panel hidden" data-panel="stock">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Stock</th>
+            <th>Cost</th>
+            <th>Sell price</th>
+          </tr>
+        </thead>
+        <tbody id="stock-body">
           <!-- filled in by script.js -->
         </tbody>
       </table>

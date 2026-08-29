@@ -39,8 +39,7 @@ body {
   color: white;
   font-weight: bold;
   font-size: 1.1rem;
-  padding: 10px 40px;
-  min-width: 220px;
+  padding: 10px 20px;
   border-radius: 999px;
   box-shadow: 0 4px 10px var(--shadow);
   border: none;
@@ -114,6 +113,38 @@ body {
 
 .modal-close:hover {
   color: #c0392b;
+}
+
+.tab-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #eee;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 8px 8px 0 0;
+  padding: 8px 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.tab-btn:hover {
+  background: #f6f6f6;
+  color: var(--text);
+}
+
+.tab-btn.active {
+  color: #27ae60;
+  border-bottom-color: #27ae60;
+}
+
+.tab-panel.hidden {
+  display: none;
 }
 
 .history-table {
@@ -242,20 +273,39 @@ button:active {
 .price-row {
   display: flex;
   gap: 8px;
+  align-items: stretch;
 }
 
-.price-input {
+.price-input,
+.cost-input {
   flex: 1;
   min-width: 0;
   border: 1px solid #ddd;
   border-radius: 8px;
   padding: 8px 10px;
-  font-size: 0.9rem;
+  font-size: 0.72rem;
+  height: 36px;
+  box-sizing: border-box;
 }
 
 .price-input:focus {
   outline: none;
   border-color: #f39c12;
+}
+
+.cost-input:focus {
+  outline: none;
+  border-color: #5c6bc0;
+}
+
+.set-price-btn,
+.set-cost-btn {
+  flex: 0 0 96px;
+  width: 96px;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .set-price-btn {
@@ -264,5 +314,14 @@ button:active {
 }
 .set-price-btn:hover {
   background: #f39c12;
+  color: white;
+}
+
+.set-cost-btn {
+  background: #eef2ff;
+  color: #3b4cca;
+}
+.set-cost-btn:hover {
+  background: #5c6bc0;
   color: white;
 }
