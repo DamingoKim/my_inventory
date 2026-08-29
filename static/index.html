@@ -30,19 +30,31 @@
         <button class="tab-btn" data-tab="stock">Stock</button>
       </div>
 
-      <table class="history-table tab-panel" data-panel="history">
-        <thead>
-          <tr>
-            <th>When</th>
-            <th>Product</th>
-            <th>Qty</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody id="history-body">
-          <!-- filled in by script.js -->
-        </tbody>
-      </table>
+      <div class="tab-panel" data-panel="history">
+        <div class="filter-row">
+          <label for="tx-type-filter">Type</label>
+          <select id="tx-type-filter">
+            <option value="ALL" selected>ALL</option>
+            <option value="sell">sell</option>
+            <option value="replenish">replenish</option>
+          </select>
+        </div>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Type</th>
+              <th>Product</th>
+              <th>Qty</th>
+              <th>Total</th>
+              <th>Net worth</th>
+            </tr>
+          </thead>
+          <tbody id="history-body">
+            <!-- filled in by script.js -->
+          </tbody>
+        </table>
+      </div>
 
       <table class="history-table tab-panel hidden" data-panel="stock">
         <thead>

@@ -214,7 +214,7 @@ def sell_product(product_id):
 
 @app.route("/api/sales", methods=["GET"])
 def get_sales():
-    """Transaction history, newest first by default.
+    """Sales-only history, newest first by default.
 
     Query params:
       - product_id: filter to one product id (e.g. ?product_id=2)
@@ -288,6 +288,82 @@ def get_sales():
         return jsonify(grouped)
 
     return jsonify(sales)
+
+
+@app.route("/api/transactions", methods=["GET"])
+def get_transactions():
+    """Combined sales + restocks (replenish), newest first.
+
+    Each row includes `net_worth`: the running total (revenue − costs)
+    immediately after that transaction.
+
+    Query params:
+      - type: ALL (default), sell, or replenish
+    """
+    tx_type = request.args.get("type", "ALL")
+    if tx_type not in ("ALL", "sell", "replenish"):
+        return jsonify({"error": 'type must be "ALL", "sell", or "replenish"'}), 400
+
+    conn = get_connection()
+    cur = conn.cursor()
+    # Always load both sides so running net worth stays correct even when
+    # the response is filtered to sell-only or replenish-only.
+    cur.execute(
+        """
+        SELECT id, type, product_id, product_name, qty, unit_amount, occurred_at
+        FROM (
+            SELECT sales.id,
+                   'sell' AS type,
+                   sales.product_id,
+                   products.name AS product_name,
+                   sales.qty_sold AS qty,
+                   sales.price_at_sale AS unit_amount,
+                   sales.sold_at AS occurred_at
+            FROM sales
+            JOIN products ON products.id = sales.product_id
+            UNION ALL
+            SELECT purchases.id,
+                   'replenish' AS type,
+                   purchases.product_id,
+                   products.name AS product_name,
+                   purchases.qty AS qty,
+                   purchases.cost_at_purchase AS unit_amount,
+                   purchases.purchased_at AS occurred_at
+            FROM purchases
+            JOIN products ON products.id = purchases.product_id
+        ) AS combined
+        ORDER BY occurred_at ASC, type ASC, id ASC;
+        """
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    running = 0.0
+    transactions = []
+    for r in rows:
+        total = float(r[4]) * float(r[5])
+        if r[1] == "sell":
+            running += total
+        else:
+            running -= total
+
+        item = {
+            "id": r[0],
+            "type": r[1],
+            "product_id": r[2],
+            "product_name": r[3],
+            "qty": r[4],
+            "unit_amount": float(r[5]),
+            "total": total,
+            "net_worth": round(running, 2),
+            "occurred_at": r[6].isoformat(),
+        }
+        if tx_type == "ALL" or item["type"] == tx_type:
+            transactions.append(item)
+
+    transactions.reverse()  # newest first for the UI
+    return jsonify(transactions)
 
 
 @app.route("/api/valuation", methods=["GET"])

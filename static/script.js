@@ -30,6 +30,14 @@ const FRUIT_STYLE = {
   },
 };
 
+const WARN_TRIANGLE_SVG = `
+  <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+    <path d="M12 2.5 L22 20.5 H2 Z" fill="#e67e22" stroke="#d35400" stroke-width="1" stroke-linejoin="round"/>
+    <rect x="11" y="8" width="2.2" height="7" rx="1" fill="#fff"/>
+    <circle cx="12.1" cy="17.5" r="1.2" fill="#fff"/>
+  </svg>
+`;
+
 async function loadProducts() {
   const res = await fetch("/api/products");
   const products = await res.json();
@@ -45,10 +53,17 @@ async function loadProducts() {
     card.dataset.id = p.id;
     card.style.setProperty("--accent", style.color);
 
+    const lowStock = p.stock_qty <= 1;
+    const outOfStock = `<span class="out-of-stock-tag"${lowStock ? "" : " hidden"}>(Out of Stock)</span>`;
+    const warnIcon = `<span class="stock-warn-icon"${lowStock ? "" : " hidden"} title="Out of Stock" aria-label="Out of Stock">${WARN_TRIANGLE_SVG}</span>`;
+
     card.innerHTML = `
-      <img src="${style.image}" alt="${p.name}">
+      <div class="product-image-wrap">
+        <img src="${style.image}" alt="${p.name}">
+        ${warnIcon}
+      </div>
       <div class="product-body">
-        <div class="product-name">${p.name}</div>
+        <div class="product-name">${p.name} ${outOfStock}</div>
         <div class="product-stats">
           <span>Stock: <strong class="stock">${p.stock_qty}</strong></span>
           <span>Sell: <strong class="price">$${p.price.toFixed(2)}</strong></span>
@@ -87,6 +102,11 @@ function updateCard(product) {
   card.querySelector(".stock").textContent = product.stock_qty;
   card.querySelector(".price").textContent = `$${product.price.toFixed(2)}`;
   card.querySelector(".cost").textContent = `$${product.cost.toFixed(2)}`;
+  const lowStock = product.stock_qty <= 1;
+  const tag = card.querySelector(".out-of-stock-tag");
+  if (tag) tag.hidden = !lowStock;
+  const warn = card.querySelector(".stock-warn-icon");
+  if (warn) warn.hidden = !lowStock;
 }
 
 function attachHandlers() {
@@ -167,26 +187,30 @@ function attachHandlers() {
 }
 
 async function loadHistoryTab() {
-  const res = await fetch("/api/sales");
-  const sales = await res.json();
+  const typeFilter = document.getElementById("tx-type-filter").value || "ALL";
+  const res = await fetch(`/api/transactions?type=${encodeURIComponent(typeFilter)}`);
+  const transactions = await res.json();
 
   const tbody = document.getElementById("history-body");
   tbody.innerHTML = "";
 
-  if (sales.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty-row">No sales yet.</td></tr>`;
+  if (transactions.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-row">No transactions yet.</td></tr>`;
     return;
   }
 
-  sales.forEach((s) => {
+  transactions.forEach((t) => {
     const tr = document.createElement("tr");
-    const total = (s.qty_sold * s.price_at_sale).toFixed(2);
-    const when = new Date(s.sold_at).toLocaleString();
+    const when = new Date(t.occurred_at).toLocaleString();
+    const sign = t.type === "sell" ? "+" : "-";
+    const totalClass = t.type === "sell" ? "total-sell" : "total-replenish";
     tr.innerHTML = `
       <td>${when}</td>
-      <td class="capitalize">${s.product_name}</td>
-      <td>${s.qty_sold}</td>
-      <td>$${total}</td>
+      <td>${t.type}</td>
+      <td class="capitalize">${t.product_name}</td>
+      <td>${t.qty}</td>
+      <td class="${totalClass}">${sign}$${t.total.toFixed(2)}</td>
+      <td>$${t.net_worth.toFixed(2)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -243,6 +267,7 @@ document.getElementById("history-overlay").addEventListener("click", (e) => {
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
 });
+document.getElementById("tx-type-filter").addEventListener("change", loadHistoryTab);
 
 loadProducts();
 loadValuation();
