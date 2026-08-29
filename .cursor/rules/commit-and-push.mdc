@@ -1,0 +1,14 @@
+---
+description: After any git commit in this repo, always push to origin
+alwaysApply: true
+---
+
+# Commit + push together
+
+In this repository, when the user asks to commit (or when a commit is made at their request):
+
+1. Create the commit as usual (follow existing commit message style).
+2. **Always push immediately after** with `git push -u origin HEAD` (or the current tracking branch).
+3. Do not stop after commit-only unless the user explicitly says **not** to push.
+
+Report both the commit hash/message and that the push succeeded (or failed).
